@@ -56,6 +56,15 @@
         android:id="@+id/signin"
         android:layout_width="192dp"
         android:layout_height="wrap_content"></com.google.android.gms.common.SignInButton>
+
+    <EditText
+        android:id="@+id/TokenTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.01"
+        android:ems="10"
+        android:inputType="textPersonName"
+        android:text="id" />
     <!--</LinearLayout>-->
 
 </LinearLayout>

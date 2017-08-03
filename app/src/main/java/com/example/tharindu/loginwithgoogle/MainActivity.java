@@ -2,11 +2,13 @@ package com.example.tharindu.loginwithgoogle;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.StrictMode;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -25,11 +27,25 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import cz.msebera.android.httpclient.HttpResponse;
+import cz.msebera.android.httpclient.client.ClientProtocolException;
+import cz.msebera.android.httpclient.client.HttpClient;
+import cz.msebera.android.httpclient.client.entity.UrlEncodedFormEntity;
+import cz.msebera.android.httpclient.client.methods.HttpPost;
+import cz.msebera.android.httpclient.impl.client.DefaultHttpClient;
+import cz.msebera.android.httpclient.message.BasicNameValuePair;
+import cz.msebera.android.httpclient.util.EntityUtils;
+
 public class MainActivity extends AppCompatActivity implements View.OnClickListener,GoogleApiClient.OnConnectionFailedListener {
+    private static final String TAG = "tag";
     private LinearLayout prof_section;
     private Button signout;
     private SignInButton signin;
-    private TextView viewname,viewemail;
+    private TextView viewname,viewemail,TokenTextView;
     private ImageView prof_pic;
     private GoogleApiClient googleApiClient;
     private static final int rec_code=9001;
@@ -38,7 +54,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        if (android.os.Build.VERSION.SDK_INT > 9)
+        {
+            StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+            StrictMode.setThreadPolicy(policy);
+        }
 
         signout=(Button)findViewById(R.id.signout);
         signin=(SignInButton)findViewById(R.id.signin);
@@ -51,8 +71,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         prof_pic.setVisibility(View.GONE);
         viewemail.setVisibility(View.GONE);
         viewname.setVisibility(View.GONE);
-
-        GoogleSignInOptions signInOptions=new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).requestEmail().build();
+        TokenTextView=(TextView)findViewById(R.id.TokenTextView);
+        //GoogleSignInOptions signInOptions=new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).requestEmail().build();
+        GoogleSignInOptions signInOptions = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestEmail()
+                .requestIdToken(getString(R.string.server_client_id))
+                .build();
+        //default_web_client_id
+        //server_client_id
         googleApiClient=new GoogleApiClient.Builder(this).enableAutoManage(this,this).addApi(Auth.GOOGLE_SIGN_IN_API,signInOptions).build();
 
 
@@ -98,6 +124,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             viewemail.setText(email);
             Glide.with(this).load(img_url).into(prof_pic);
             UpdateUI(true);
+            // Request only the user's ID token, which can be used to identify the
+// user securely to your backend. This will contain the user's basic
+// profile (name, profile picture URL, etc) so you should not need to
+// make an additional call to personalize your application.
+
+
+            //////////////////////////
+            String idToken = signInAccount.getIdToken();
+           sendRequest(idToken);
+            TokenTextView.setText("ID Token: " + idToken);
+
+        }else{
+            TokenTextView.setText("ID Token: null");
         }
     }
     private  void UpdateUI(boolean isLogin){
@@ -123,6 +162,27 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if(requestCode==rec_code){
             GoogleSignInResult result=Auth.GoogleSignInApi.getSignInResultFromIntent(data);
             handleResult(result);
+        }
+    }
+
+    ///////////////////////////sendnig to server////////////////////////////////
+    private  void  sendRequest(String idToken){
+        HttpClient httpClient = new DefaultHttpClient();
+        HttpPost httpPost = new HttpPost("http://172.16.1.166:8080/greeting");
+
+        try {
+            List nameValuePairs = new ArrayList(1);
+            nameValuePairs.add(new BasicNameValuePair("idToken", idToken));
+          httpPost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
+
+            HttpResponse response = httpClient.execute(httpPost);
+            int statusCode = response.getStatusLine().getStatusCode();
+            final String responseBody = EntityUtils.toString(response.getEntity());
+            Log.i(TAG, "Signed in as: " + responseBody);
+        } catch (ClientProtocolException e) {
+            Log.e(TAG, "Error sending ID token to backend.", e);
+        } catch (IOException e) {
+            Log.e(TAG, "Error sending ID token to backend.", e);
         }
     }
 
